@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Underhanded</string>
+    <string name="title_activity_main">Underhanded</string>
+    <string name="package_name">com.njayman.underhanded</string>
+    <string name="custom_url_scheme">com.njayman.underhanded</string>
+</resources>
