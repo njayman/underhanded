@@ -1,3 +1,7 @@
+import { ABILITIES, MAX_ABILITY_LEVEL, type AbilityId } from '../data/abilities';
+import { HAMMER } from '../data/hammers';
+import { SKIN } from '../data/skins';
+import type { Grant } from '../data/store';
 import type { ToolMods } from '../data/tools';
 import { UPGRADES } from '../data/upgrades';
 import { CHESTS_PER_DAY, defaultAds, type AdsState } from '../rules/ads';
@@ -13,9 +17,29 @@ export interface Save {
   ads: AdsState; // interstitial counter and today's gold chests
   playerId: string; // uuid for the leaderboard; '' until storage assigns one
   pending: Submission[]; // finished runs not yet accepted by the leaderboard
+  muted: boolean;
+  arena: number; // checkpoint: the arena a run starts in; advances when an arena is cleared
+  playedMs: number; // all shift time ever played; the leaderboard checks depth against it
+  hammers: string[]; // owned; always includes the mallet
+  hammer: string; // equipped
+  abilities: Record<AbilityId, number>; // levels, 0 = locked
+  hardHats: number; // bought shields in stock
+  skins: string[]; // owned cosmetics
+  skin: string; // equipped hammer skin, '' for none
+  season: SeasonProgress;
+  granted: string[]; // one-time purchases already paid out (store product ids)
 }
 
-export const defaultSave = (): Save => ({ version: 1, gold: 0, bestDepth: 0, upgrades: {}, daily: { date: '', bestDepth: 0 }, ads: defaultAds(), playerId: '', pending: [] });
+export interface SeasonProgress { id: number; xp: number; free: number[]; paid: number[] } // claimed tiers, 1-based
+
+export const MAX_HARD_HATS = 9;
+
+export const defaultSave = (): Save => ({
+  version: 1, gold: 0, bestDepth: 0, upgrades: {}, daily: { date: '', bestDepth: 0 }, ads: defaultAds(), playerId: '', pending: [], muted: false,
+  arena: 0, playedMs: 0, hammers: ['mallet'], hammer: 'mallet',
+  abilities: Object.fromEntries(ABILITIES.map((a) => [a.id, a.startLevel])) as Record<AbilityId, number>,
+  hardHats: 0, skins: [], skin: '', season: { id: -1, xp: 0, free: [], paid: [] }, granted: [],
+});
 
 const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
 const record = (v: unknown): Record<string, unknown> => (typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : {});
@@ -44,6 +68,21 @@ export function sanitizeSave(raw: unknown): Save {
   }
   if (isUuid(r.playerId)) save.playerId = r.playerId;
   save.pending = sanitizePending(r.pending);
+  save.muted = r.muted === true;
+  save.arena = count(r.arena);
+  save.playedMs = count(r.playedMs);
+  const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
+  save.hammers = ['mallet', ...new Set(strings(r.hammers).filter((id) => id in HAMMER && id !== 'mallet'))];
+  save.hammer = typeof r.hammer === 'string' && save.hammers.includes(r.hammer) ? r.hammer : 'mallet';
+  const abilities = record(r.abilities);
+  for (const def of ABILITIES) save.abilities[def.id] = Math.max(def.startLevel, count(abilities[def.id], MAX_ABILITY_LEVEL));
+  save.hardHats = count(r.hardHats, MAX_HARD_HATS);
+  save.skins = [...new Set(strings(r.skins).filter((id) => id in SKIN))];
+  save.skin = typeof r.skin === 'string' && save.skins.includes(r.skin) ? r.skin : '';
+  const season = record(r.season);
+  const tiers = (v: unknown) => [...new Set((Array.isArray(v) ? v : []).filter((t): t is number => Number.isInteger(t) && t >= 1 && t <= 100))];
+  if (Number.isInteger(season.id)) save.season = { id: season.id as number, xp: count(season.xp), free: tiers(season.free), paid: tiers(season.paid) };
+  save.granted = [...new Set(strings(r.granted))];
   return save;
 }
 
@@ -81,4 +120,14 @@ export const dailyBest = (save: Save, date: string): number => (save.daily.date 
 // One entry per owned level, for rules/tools.applyMods.
 export function upgradeMods(save: Save): ToolMods[] {
   return Object.values(UPGRADES).flatMap((def) => Array<ToolMods>(upgradeLevel(save, def.id)).fill(def.mods));
+}
+
+// Apply a reward or purchase contents. Skins already owned are not duplicated; hard hats cap at MAX_HARD_HATS.
+export function applyGrant(save: Save, grant: Grant): Save {
+  return {
+    ...save,
+    gold: save.gold + count(grant.gold),
+    hardHats: Math.min(MAX_HARD_HATS, save.hardHats + count(grant.hardHats)),
+    skins: [...new Set([...save.skins, ...(grant.skins ?? []).filter((id) => id in SKIN)])],
+  };
 }

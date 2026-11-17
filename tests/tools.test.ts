@@ -10,7 +10,7 @@ const rng0 = mulberry32(1);
 
 const base = shiftConfigForDepth(1);
 const quiet = { spawnInMs: 1e9 };
-const mole = (kind: string) => ({ kind, ageMs: 0, upMs: 1000, hp: 1 });
+const mole = (kind: string) => ({ kind, ageMs: 0, upMs: 1000, hp: 1, maxHp: 1, hits: 0 });
 
 describe('applyTools', () => {
   it('no tools changes nothing and does not share the weights object', () => {

@@ -31,8 +31,11 @@ export const isUuid = (v: unknown): v is string => typeof v === 'string' && UUID
 // Until players can type a name: a stable clerk number per player.
 export const playerName = (playerId: string): string => `Clerk ${1000 + (hashString(playerId) % 9000)}`;
 
-export function submissionFor(run: Run, playerId: string): Submission {
-  return { runId: run.id, playerId, name: playerName(playerId), day: run.daily, depth: run.depth, elapsedMs: Math.floor(run.elapsedMs) };
+// Ordinary runs start at the player's arena checkpoint, so their depth is checked against all play time
+// ever (playedMs); daily runs start at depth 1 and use the run's own time.
+export function submissionFor(run: Run, playerId: string, playedMs = 0): Submission {
+  const elapsed = run.daily ? run.elapsedMs : Math.max(run.elapsedMs, playedMs);
+  return { runId: run.id, playerId, name: playerName(playerId), day: run.daily, depth: run.depth, elapsedMs: Math.floor(elapsed) };
 }
 
 // The server's rules (supabase/migrations), checked before sending so doomed submissions are dropped.

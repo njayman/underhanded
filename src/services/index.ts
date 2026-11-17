@@ -8,7 +8,7 @@ import { createSupabaseLeaderboard } from './leaderboard/supabase-leaderboard';
 // The live services. Scenes import from here and nothing else under services/.
 // ponytail: mock ad and purchase providers in every build. Swap in the AdMob and store-billing
 // implementations here before release; nothing outside this file needs to change. Do not ship the mocks.
-export const purchases = createMockPurchaseService();
+export const purchases = createMockPurchaseService([], localStorage);
 export const ads = createAdGate(overlayAdService, purchases, {
   get: () => getSave().ads,
   set: (next) => setSave({ ...getSave(), ads: next }),

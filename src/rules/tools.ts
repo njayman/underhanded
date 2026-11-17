@@ -11,6 +11,8 @@ export function applyMods(base: ShiftConfig, mods: ToolMods[]): ShiftConfig {
     cfg.goldMult *= m.goldMult ?? 1;
     cfg.upScale *= m.upScale ?? 1;
     cfg.spawnEveryMs *= m.spawnEvery ?? 1;
+    cfg.damage += m.damage ?? 0;
+    cfg.meterGain *= m.meterGain ?? 1;
     for (const [mole, w] of Object.entries(m.weightMult ?? {})) if (mole in cfg.moles) cfg.moles[mole] *= w;
   }
   return cfg;

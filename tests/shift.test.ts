@@ -4,41 +4,53 @@ import { createShift, tick, whack, type ShiftState, type ShiftEvent } from '../s
 import { mulberry32 } from '../src/rules/rng';
 
 const rng0 = mulberry32(1);
-
-const cfg = { ...shiftConfigForDepth(1), bossAtMs: -1 }; // no boss here: see boss.test.ts
-const withMole = (kind: string, over: Partial<ShiftState> = {}): ShiftState => {
+const cfg = shiftConfigForDepth(1); // depth 1: no boss
+const withMole = (kind: string, over: Partial<ShiftState> = {}, hp = 1): ShiftState => {
   const s = createShift(cfg);
-  s.holes[4] = { kind, ageMs: 0, upMs: 1000, hp: 1 };
+  s.holes[4] = { kind, ageMs: 0, upMs: 1000, hp, maxHp: hp, hits: 0 };
   return { ...s, ...over };
 };
 
 describe('whack', () => {
-  it('hitting a clerk earns gold and keeps lives', () => {
+  it('finishing a clerk earns gold and keeps lives', () => {
     const { state, events } = whack(withMole('clerk'), 4, cfg, rng0);
-    expect(state).toMatchObject({ gold: 1, hits: 1, lives: 3 });
+    expect(state).toMatchObject({ gold: 1, kills: 1, lives: 3, combo: 1 });
     expect(state.holes[4]).toBeNull();
-    expect(events[0].type).toBe('hit');
+    expect(events.at(-1)).toMatchObject({ type: 'hit', kind: 'clerk', cause: 'hammer' });
+  });
+  it('a clerk at full hp needs two mallet hits', () => {
+    let state = withMole('clerk', {}, 2);
+    let step = whack(state, 4, cfg, rng0);
+    expect(step.events).toEqual([{ type: 'hurt', hole: 4, to: 4, kind: 'clerk', hpLeft: 1, damage: 1 }]);
+    state = step.state;
+    step = whack(state, 4, cfg, rng0);
+    expect(step.state.holes[4]).toBeNull();
+    expect(step.state.combo).toBe(2);
+  });
+  it('hammer damage kills in one hit when big enough', () => {
+    const { state } = whack(withMole('clerk', {}, 3), 4, { ...cfg, damage: 3 }, rng0);
+    expect(state.holes[4]).toBeNull();
   });
   it('hitting a foreman (decoy) costs a life and no gold', () => {
     const { state } = whack(withMole('foreman'), 4, cfg, rng0);
-    expect(state).toMatchObject({ gold: 0, hits: 0, lives: 2 });
+    expect(state).toMatchObject({ gold: 0, kills: 0, lives: 2 });
   });
   it('losing the last life fails the shift', () => {
     const { state, events } = whack(withMole('foreman', { lives: 1 }), 4, cfg, rng0);
     expect(state.result).toBe('failed');
     expect(events.at(-1)).toEqual({ type: 'over', result: 'failed' });
   });
-  it('empty hole and finished shift are no-ops', () => {
+  it('an empty hole is a whiff; a finished shift ignores taps', () => {
     const s = createShift(cfg);
-    expect(whack(s, 0, cfg, rng0).state).toBe(s);
+    expect(whack(s, 0, cfg, rng0).events).toEqual([{ type: 'whiff', hole: 0 }]);
     const done = withMole('clerk', { result: 'cleared' });
     expect(whack(done, 4, cfg, rng0).state).toBe(done);
   });
   it('does not mutate the input state', () => {
-    const s = withMole('clerk');
+    const s = withMole('clerk', {}, 2);
     whack(s, 4, cfg, rng0);
-    expect(s.holes[4]).not.toBeNull();
-    expect(s.gold).toBe(0);
+    expect(s.holes[4]!.hp).toBe(2);
+    expect(s.combo).toBe(0);
   });
 });
 
@@ -63,6 +75,15 @@ describe('tick', () => {
   it('zero lives beats the timer: failed, not cleared', () => {
     const s = withMole('golden', { ...quiet, lives: 1, timeLeftMs: 500 });
     expect(tick(s, 1000, cfg, mulberry32(1)).state.result).toBe('failed');
+  });
+  it('spawned moles get depth-scaled hp', () => {
+    const deep = shiftConfigForDepth(21);
+    let state = createShift(deep);
+    const rng = mulberry32(5);
+    while (!state.holes.some(Boolean)) state = tick(state, 50, deep, rng).state;
+    const mole = state.holes.find(Boolean)!;
+    expect(mole.hp).toBe(mole.maxHp);
+    expect(mole.hp).toBeGreaterThan(1);
   });
   it('same seed gives the same spawn layout', () => {
     const run = (seed: number) => {

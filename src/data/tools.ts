@@ -9,6 +9,8 @@ export interface ToolMods {
   upScale?: number; // multiplied: how long moles stay up
   spawnEvery?: number; // multiplied: gap between spawns
   weightMult?: Record<string, number>; // multiplied: mole id -> spawn weight
+  damage?: number; // added to hammer damage
+  meterGain?: number; // multiplied: combo meter charge per hit
 }
 
 export interface ToolDef {
@@ -28,6 +30,8 @@ const tools: ToolDef[] = [
   { id: 'lucky-ledger', name: 'Lucky Ledger', blurb: 'Twice the golden moles. Twice the gold, twice the risk.', maxStacks: 1, mods: { weightMult: { golden: 2 } } },
   { id: 'slow-memo', name: 'Slow Memo', blurb: 'Head office dawdles. Moles turn up less often.', maxStacks: 2, mods: { spawnEvery: 1.15 } },
   { id: 'day-off', name: "Foreman's Day Off", blurb: 'Half as many foremen on the floor.', maxStacks: 1, mods: { weightMult: { foreman: 0.5 } } },
+  { id: 'lead-weight', name: 'Lead Weight', blurb: 'Taped to the hammer head. +1 damage.', maxStacks: 2, mods: { damage: 1 } },
+  { id: 'espresso', name: 'Double Espresso', blurb: 'The combo meter charges half again as fast.', maxStacks: 2, mods: { meterGain: 1.5 } },
 ];
 
 export const TOOLS: Record<string, ToolDef> = Object.fromEntries(tools.map((t) => [t.id, t]));

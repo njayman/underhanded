@@ -1,11 +1,11 @@
 import * as Phaser from 'phaser';
-import { LAYERS, PAPER } from '../data/layers';
+import { LAYERS } from '../data/layers';
 import { playerName, type BoardEntry } from '../meta/leaderboard';
 import { dailyBest } from '../meta/progression';
 import { getSave } from '../meta/storage';
 import { utcDateKey } from '../rules/run';
 import { leaderboard } from '../services';
-import { LETTERING, W, inkText, printPage } from '../art/paper';
+import { INK_A, INK_B, TITLE, NO_INK, W, inkText, printPage } from '../art/paper';
 import { sendPending } from './office-scene';
 
 const X = 48;
@@ -30,11 +30,13 @@ export class BoardScene extends Phaser.Scene {
   create(): void {
     const save = getSave();
     const today = utcDateKey(new Date());
-    const { inkA, inkB } = LAYERS[0];
-    const { a, b } = printPage(this, inkB, 360);
+    const layer = LAYERS[0];
+    const inkA = INK_A;
+    const inkB = INK_B;
+    const { k, a, b } = printPage(this, layer, 360);
     a.lineStyle(6, inkA);
 
-    inkText(this, X, 50, 68, inkA, LETTERING).setText('LEADERBOARD');
+    inkText(this, X, 50, 68, inkA, TITLE).setText('LEADERBOARD');
     inkText(this, X, 146, 28, inkB).setText(`YOU ARE ${playerName(save.playerId).toUpperCase()}`);
     const mine = this.tab === 'daily' ? dailyBest(save, today) : save.bestDepth;
     inkText(this, X, 186, 28, inkB).setText(mine ? `YOUR BEST: DEPTH ${mine}` : 'NO RUNS YET');
@@ -44,13 +46,13 @@ export class BoardScene extends Phaser.Scene {
       const on = tab === this.tab;
       if (on) a.fillStyle(inkA).fillRect(x, TABS.y, TABS.w, TABS.h);
       else a.strokeRect(x, TABS.y, TABS.w, TABS.h);
-      inkText(this, x + TABS.w / 2, TABS.y + TABS.h / 2, 38, on ? PAPER : inkA, LETTERING).setOrigin(0.5).setText(tab === 'daily' ? `DAILY ${today.slice(5)}` : 'ALL-TIME');
+      inkText(this, x + TABS.w / 2, TABS.y + TABS.h / 2, 38, on ? NO_INK : inkA, TITLE).setOrigin(0.5).setText(tab === 'daily' ? `DAILY ${today.slice(5)}` : 'ALL-TIME');
     });
 
-    a.fillStyle(PAPER).fillRect(X, BACK.y, ROW_W, BACK.h);
+    k.fillStyle(NO_INK).fillRect(X, BACK.y, ROW_W, BACK.h);
     a.strokeRect(X, BACK.y, ROW_W, BACK.h);
     b.fillStyle(inkB).fillRect(X, BACK.y, 20, BACK.h);
-    inkText(this, W / 2, BACK.y + BACK.h / 2, 52, inkA, LETTERING).setOrigin(0.5).setText('BACK TO THE OFFICE');
+    inkText(this, W / 2, BACK.y + BACK.h / 2, 52, inkA, TITLE).setOrigin(0.5).setText('BACK TO THE OFFICE');
 
     const status = inkText(this, W / 2, LIST_Y + 40, 26, inkB).setOrigin(0.5, 0).setAlign('center').setText('fetching the ledger...');
     void (async () => {
@@ -84,10 +86,10 @@ export class BoardScene extends Phaser.Scene {
     rows.forEach((row, i) => {
       const y = top + i * LINE;
       if (row.me) b.fillStyle(inkB).fillRect(X, y - 6, ROW_W, LINE - 8); // your row, inked
-      const ink = row.me ? PAPER : inkA;
-      inkText(this, X + 20, y, 34, ink, LETTERING).setText(`${row.rank}.`);
-      inkText(this, X + 100, y + 4, 30, row.me ? PAPER : inkB).setText(row.name.toUpperCase());
-      inkText(this, X + ROW_W - 20, y, 34, ink, LETTERING).setOrigin(1, 0).setText(`DEPTH ${row.depth}`);
+      const ink = row.me ? NO_INK : inkA;
+      inkText(this, X + 20, y, 34, ink, TITLE).setText(`${row.rank}.`);
+      inkText(this, X + 100, y + 4, 30, row.me ? NO_INK : inkB).setText(row.name.toUpperCase());
+      inkText(this, X + ROW_W - 20, y, 34, ink, TITLE).setOrigin(1, 0).setText(`DEPTH ${row.depth}`);
     });
     a.lineBetween(X, top - 16, X + ROW_W, top - 16);
   }

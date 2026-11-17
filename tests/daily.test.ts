@@ -4,7 +4,7 @@ import { shiftConfigForDepth } from '../src/generation/depth';
 import { defaultSave, dailyBest, recordDaily, sanitizeSave } from '../src/meta/progression';
 import { hashString } from '../src/rules/rng';
 import { newDailyRun, newRun, streamFor, utcDateKey, type Run } from '../src/rules/run';
-import { createShift, tick, whack } from '../src/rules/shift';
+import { createShift, tick, useAbility, whack } from '../src/rules/shift';
 import { draftOffer } from '../src/rules/tools';
 
 describe('daily seed', () => {
@@ -49,10 +49,10 @@ describe('streams', () => {
 
 // The point of a daily run: what the game sends you must not depend on how you play.
 describe('same moles for every player', () => {
-  for (const depth of [1, 2, 3, 4]) {
+  for (const depth of [1, 2, 3, 6, 11, 16, 26]) { // includes every boss shift type
     it(`depth ${depth}: an idle player and a busy player get the same spawn rolls`, () => {
       const run: Run = { ...newDailyRun(new Date('2026-11-16T12:00:00Z')), depth };
-      const cfg = { ...shiftConfigForDepth(depth), lives: 9999 }; // nobody gets sacked early
+      const cfg = { ...shiftConfigForDepth(depth), lives: 9999, abilities: { quake: 3, trap: 3, freeze: 3, frenzy: 3 } }; // nobody gets sacked early
       const play = (busy: boolean) => {
         const rolls: number[] = [];
         const base = streamFor(run, 'spawn');
@@ -68,6 +68,9 @@ describe('same moles for every player', () => {
             state = whack(state, i, cfg, hopRng).state;
             bonks++;
           });
+          // Abilities and traps change the board, never the spawn rolls.
+          for (const id of ['quake', 'freeze', 'frenzy'] as const) state = useAbility(state, id, cfg).state;
+          state = useAbility(state, 'trap', cfg, bonks % 9).state;
         }
         return { rolls, bonks };
       };
